@@ -4,6 +4,13 @@
 
 #include <memory>
 
+/*TODO
+ * reserve()
+ * resize()
+ * insert()
+ * erase()
+ */
+
 
 template<typename T, typename Alloc = std::allocator<T>>
 class CircularBuffer : private std::allocator_traits<Alloc>::template rebind_alloc<T> {
@@ -63,9 +70,28 @@ public:
 
     reverse_iterator rend() noexcept;
 
+    const_reverse_iterator rbegin() const noexcept;
+
+    const_reverse_iterator rend() const noexcept;
+
     const_reverse_iterator crbegin() const noexcept;
 
     const_reverse_iterator crend() const noexcept;
+
+    void push_back(const T& value);
+
+    void push_back(T&& value);
+
+    template<typename... Args>
+    void emplace_back(Args&&... args);
+
+    void push_front(const T& value);
+
+    void push_front(T&& value);
+
+    template<typename... Args>
+    void emplace_front(Args&&... args);
+
 
     bool operator==(const CircularBuffer& other) const noexcept;
 
@@ -81,6 +107,10 @@ public:
 
     bool empty() const noexcept;
 
+    void resize(std::size_t n, const value_type& value) noexcept;
+
+    void reserve(std::size_t n) noexcept;
+
 protected:
 
 private:
@@ -93,14 +123,12 @@ private:
 };
 
 
-
-
 template<typename T, typename Alloc>
 CircularBuffer<T, Alloc>::CircularBuffer(const Alloc& allocator)
         :
         allocator_type(allocator),
         buff_start_(AllocTraits::allocate(*this, 1)),
-        buff_end_(buff_start_),
+        buff_end_(buff_start_ + 1),
         actual_start_(buff_start_),
         actual_end_(buff_start_) {}
 
@@ -110,8 +138,8 @@ CircularBuffer<T, Alloc>::CircularBuffer(size_t size, const Alloc& allocator) :
         allocator_type(allocator),
         buff_start_(AllocTraits::allocate(*this, size + 1)),
         buff_end_(buff_start_ + size + 1),
-        actual_start_(nullptr),
-        actual_end_(nullptr) {}
+        actual_start_(buff_start_),
+        actual_end_(buff_start_ + size) {}
 
 template<typename T, typename Alloc>
 CircularBuffer<T, Alloc>::CircularBuffer(size_t size, const T& value, const Alloc& allocator)
@@ -231,6 +259,90 @@ CircularBuffer<T, Alloc>::const_reference CircularBuffer<T, Alloc>::operator[](s
 }
 
 
+template<typename T, typename Alloc>
+void CircularBuffer<T, Alloc>::push_back(const T& value) {
+    if (capacity() == 0) {
+        return;
+    }
+    auto next = (actual_end_ + 1 == buff_end_ ? buff_start_ : actual_end_ + 1);
+    if (next == actual_start_) {
+        AllocTraits::destroy(*this, actual_start_);
+        actual_start_ = (actual_start_ + 1 == buff_end_ ? buff_start_ : actual_start_ + 1);
+    }
+    AllocTraits::construct(*this, actual_end_, value);
+    actual_end_ = (actual_end_ + 1 == buff_end_ ? buff_start_ : actual_end_ + 1);
+}
+
+template<typename T, typename Alloc>
+void CircularBuffer<T, Alloc>::push_back(T&& value) {
+    if (capacity() == 0) {
+        return;
+    }
+    auto next = (actual_end_ + 1 == buff_end_ ? buff_start_ : actual_end_ + 1);
+    if (next == actual_start_) {
+        AllocTraits::destroy(*this, actual_start_);
+        actual_start_ = (actual_start_ + 1 == buff_end_ ? buff_start_ : actual_start_ + 1);
+    }
+    AllocTraits::construct(*this, actual_end_, std::move(value));
+    actual_end_ = next;
+}
+
+template<typename T, typename Alloc>
+template<typename... Args>
+void CircularBuffer<T, Alloc>::emplace_back(Args&& ... args) {
+    if (capacity() == 0) {
+        return;
+    }
+    auto next = (actual_end_ + 1 == buff_end_ ? buff_start_ : actual_end_ + 1);
+    if (next == actual_start_) {
+        AllocTraits::destroy(*this, actual_start_);
+        actual_start_ = (actual_start_ + 1 == buff_end_ ? buff_start_ : actual_start_ + 1);
+    }
+    AllocTraits::construct(*this, actual_end_, value_type(std::forward<Args>(args)...));
+    actual_end_ = (actual_end_ + 1 == buff_end_ ? buff_start_ : actual_end_ + 1);
+}
+
+template<typename T, typename Alloc>
+void CircularBuffer<T, Alloc>::push_front(const T& value) {
+    if (capacity() == 0) {
+        return;
+    }
+    actual_start_ = (actual_start_ == buff_start_ ? buff_end_ - 1 : actual_start_ - 1);
+    if (actual_start_ == actual_end_) {
+        actual_end_ = (actual_end_ == buff_start_ ? buff_end_ - 1 : actual_end_ - 1);
+        AllocTraits::destroy(*this, actual_end_);
+    }
+    AllocTraits::construct(*this, actual_start_, value);
+}
+
+template<typename T, typename Alloc>
+void CircularBuffer<T, Alloc>::push_front(T&& value) {
+    if (capacity() == 0) {
+        return;
+    }
+    actual_start_ = (actual_start_ == buff_start_ ? buff_end_ - 1 : actual_start_ - 1);
+    if (actual_start_ == actual_end_) {
+        actual_end_ = (actual_end_ == buff_start_ ? buff_end_ - 1 : actual_end_ - 1);
+        AllocTraits::destroy(*this, actual_end_);
+    }
+    AllocTraits::construct(*this, actual_start_, std::move(value));
+}
+
+template<typename T, typename Alloc>
+template<typename... Args>
+void CircularBuffer<T, Alloc>::emplace_front(Args&& ... args) {
+    if (capacity() == 0) {
+        return;
+    }
+    actual_start_ = (actual_start_ == buff_start_ ? buff_end_ - 1 : actual_start_ - 1);
+    if (actual_start_ == actual_end_) {
+        actual_end_ = (actual_end_ == buff_start_ ? buff_end_ - 1 : actual_end_ - 1);
+        AllocTraits::destroy(*this, actual_end_);
+    }
+    AllocTraits::construct(*this, actual_start_, value_type(std::forward<Args>(args)...));
+}
+
+
 //TODO ITERATOR TOOLS
 template<typename T, typename Alloc>
 CircularBuffer<T, Alloc>::iterator CircularBuffer<T, Alloc>::begin() noexcept {
@@ -250,28 +362,38 @@ CircularBuffer<T, Alloc>::const_iterator CircularBuffer<T, Alloc>::cbegin() cons
 
 template<typename T, typename Alloc>
 CircularBuffer<T, Alloc>::const_iterator CircularBuffer<T, Alloc>::cend() const noexcept {
-    return CircularBuffer::const_iterator(actual_start_, buff_start_, buff_end_, actual_start_, actual_end_);
+    return CircularBuffer::const_iterator(actual_end_, buff_start_, buff_end_, actual_start_, actual_end_);
 }
 
 template<typename T, typename Alloc>
 CircularBuffer<T, Alloc>::reverse_iterator CircularBuffer<T, Alloc>::rbegin() noexcept {
-    return reverse_iterator(actual_end_, buff_start_, buff_end_, actual_start_, actual_end_);
+    return reverse_iterator(iterator(actual_end_, buff_start_, buff_end_, actual_start_, actual_end_));
 }
 
 template<typename T, typename Alloc>
 CircularBuffer<T, Alloc>::reverse_iterator CircularBuffer<T, Alloc>::rend() noexcept {
-    return reverse_iterator(actual_start_, buff_start_, buff_end_, actual_start_, actual_end_);
+    return reverse_iterator(iterator(actual_start_, buff_start_, buff_end_, actual_start_, actual_end_));
+}
+
+template<typename T, typename Alloc>
+CircularBuffer<T, Alloc>::const_reverse_iterator CircularBuffer<T, Alloc>::rbegin() const noexcept {
+    return const_reverse_iterator(iterator(actual_end_, buff_start_, buff_end_, actual_start_, actual_end_));
+}
+
+template<typename T, typename Alloc>
+CircularBuffer<T, Alloc>::const_reverse_iterator CircularBuffer<T, Alloc>::rend() const noexcept {
+    return const_reverse_iterator(iterator(actual_start_, buff_start_, buff_end_, actual_start_, actual_end_));
 }
 
 template<typename T, typename Alloc>
 CircularBuffer<T, Alloc>::const_reverse_iterator CircularBuffer<T, Alloc>::crbegin() const noexcept {
-    return const_reverse_iterator(actual_end_, buff_start_, buff_end_, actual_start_, actual_end_);
+    return const_reverse_iterator(const_iterator(actual_end_, buff_start_, buff_end_, actual_start_, actual_end_));
 }
 
 
 template<typename T, typename Alloc>
 CircularBuffer<T, Alloc>::const_reverse_iterator CircularBuffer<T, Alloc>::crend() const noexcept {
-    return const_reverse_iterator(actual_start_, buff_start_, buff_end_, actual_start_, actual_end_);
+    return const_reverse_iterator(const_iterator(actual_start_, buff_start_, buff_end_, actual_start_, actual_end_));
 }
 
 template<typename T, typename Alloc>
@@ -284,11 +406,16 @@ bool CircularBuffer<T, Alloc>::operator==(const CircularBuffer& other) const noe
 
 template<typename T, typename Alloc>
 void CircularBuffer<T, Alloc>::swap(const CircularBuffer& other) noexcept {
-
+    std::swap(*this, other);
 }
 
 template<typename T, typename Alloc>
 bool CircularBuffer<T, Alloc>::operator!=(const CircularBuffer& other) const noexcept {
     return !this->operator==(other);
+}
+
+template<typename T, typename Alloc>
+bool CircularBuffer<T, Alloc>::empty() const noexcept {
+    return size() == 0;
 }
 

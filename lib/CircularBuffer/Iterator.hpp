@@ -1,6 +1,6 @@
 #include <iterator>
 
-#define NOT_EMPTY_BUFFER if (buff_start_ == buff_end_) {return *this;}
+#define NOT_EMPTY_BUFFER if (buff_start_ + 1 == buff_end_) {return *this;}
 
 template<typename T>
 struct CommonIterator {
