@@ -1,3 +1,5 @@
+#pragma once
+
 #include <iterator>
 
 #define NOT_EMPTY_BUFFER if (buff_start_ + 1 == buff_end_) {return *this;}
