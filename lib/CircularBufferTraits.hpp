@@ -20,6 +20,7 @@
     using typename CircularBufferTraits<T, Alloc>::const_reverse_iterator; \
     using typename CircularBufferTraits<T, Alloc>::value_type; \
     using typename CircularBufferTraits<T, Alloc>::reference; \
+    using typename CircularBufferTraits<T, Alloc>::pointer; \
     using typename CircularBufferTraits<T, Alloc>::const_reference; \
     using typename CircularBufferTraits<T, Alloc>::difference_type; \
     using typename CircularBufferTraits<T, Alloc>::size_type; \
@@ -35,10 +36,11 @@
     using CircularBufferTraits<T, Alloc>::capacity; \
     using CircularBufferTraits<T, Alloc>::max_size; \
     using CircularBufferTraits<T, Alloc>::empty; \
-    using CircularBufferTraits<T, Alloc>::reserve;
-//    using CircularBufferTraits<T, Alloc>::resize; \
-//    using CircularBufferTraits<T, Alloc>::erase; \
-//    using CircularBufferTraits<T, Alloc>::insert;
+    using CircularBufferTraits<T, Alloc>::reserve; \
+    using CircularBufferTraits<T, Alloc>::resize; \
+    using CircularBufferTraits<T, Alloc>::erase; \
+    using CircularBufferTraits<T, Alloc>::clear; \
+    using CircularBufferTraits<T, Alloc>::assign;
 
 
 template<typename T, typename Alloc = std::allocator<T>>
@@ -54,8 +56,8 @@ public:
 
     using value_type = T;
     using reference = T&;
-
     using const_reference = const T&;
+    using pointer = T*;
 
     using difference_type = iterator::difference_type;
     using size_type = std::size_t;
@@ -65,9 +67,9 @@ public:
 
     explicit CircularBufferTraits(const Alloc& allocator = Alloc());
 
-    explicit CircularBufferTraits(size_t size, const Alloc& allocator = Alloc());
+    explicit CircularBufferTraits(size_type size, const Alloc& allocator = Alloc());
 
-    CircularBufferTraits(size_t size, const T& value, const Alloc& allocator = Alloc());
+    CircularBufferTraits(size_type size, const_reference value, const Alloc& allocator = Alloc());
 
     template<typename LegacyInputIterator>
     CircularBufferTraits(LegacyInputIterator i, LegacyInputIterator j, const Alloc& allocator = Alloc());
@@ -84,9 +86,11 @@ public:
 
     CircularBufferTraits& operator=(const std::initializer_list<value_type>& list);
 
-    reference operator[](std::size_t i);
+    void swap(CircularBufferTraits& other);
 
-    const_reference operator[](std::size_t i) const;
+    reference operator[](size_type i);
+
+    const_reference operator[](size_type i) const;
 
     iterator begin() noexcept;
 
@@ -112,38 +116,23 @@ public:
 
     const_reverse_iterator crend() const noexcept;
 
-    template<typename... Args>
-    iterator emplace(iterator p, Args... args);
-
-    iterator insert(iterator p, const_reference value);
-
-    iterator insert(iterator p, value_type&& rv);
-
-    iterator insert(iterator p, size_type n, const_reference value);
-
-    template<typename LegacyInputIterator>
-    iterator insert(iterator p, LegacyInputIterator i, LegacyInputIterator j);
-
-    iterator insert(iterator p, const std::initializer_list<value_type>& il);
-
     iterator erase(const_iterator q);
 
     iterator erase(const_iterator q1, const_iterator q2);
 
     void clear() noexcept;
 
+    void assign(size_type n, const_reference value);
+
     template<typename LegacyInputIterator>
     void assign(LegacyInputIterator i, LegacyInputIterator j);
 
     void assign(const std::initializer_list<value_type>& il);
 
-    void assign(size_type n, const_reference value);
-
     bool operator==(const CircularBufferTraits& other) const noexcept;
 
     bool operator!=(const CircularBufferTraits& other) const noexcept;
 
-    void swap(CircularBufferTraits& other) noexcept;
 
     size_type size() const noexcept;
 
@@ -153,18 +142,17 @@ public:
 
     bool empty() const noexcept;
 
-    void resize(std::size_t n, const value_type& value) noexcept;
 
-    void reserve(size_type n) noexcept;
+    void reserve(size_type n);
+
+    void resize(size_type n, const value_type& value = value_type());
 
 protected:
-    T* buff_start_;
-    T* buff_end_;
-    T* actual_start_;
-    T* actual_end_;
+    pointer buff_start_;
+    pointer buff_end_;
+    pointer actual_start_;
+    pointer actual_end_;
 };
-
-
 
 
 template<typename T, typename Alloc>
@@ -177,9 +165,8 @@ CircularBufferTraits<T, Alloc>::CircularBufferTraits(const Alloc& allocator)
         actual_end_(buff_start_) {}
 
 
-        // TODO remove this constructor
 template<typename T, typename Alloc>
-CircularBufferTraits<T, Alloc>::CircularBufferTraits(size_t size, const Alloc& allocator) :
+CircularBufferTraits<T, Alloc>::CircularBufferTraits(size_type size, const Alloc& allocator) :
         allocator_type(allocator),
         buff_start_(AllocTraits::allocate(*this, size + 1)),
         buff_end_(buff_start_ + size + 1),
@@ -187,20 +174,20 @@ CircularBufferTraits<T, Alloc>::CircularBufferTraits(size_t size, const Alloc& a
         actual_end_(buff_start_ + size) {}
 
 template<typename T, typename Alloc>
-CircularBufferTraits<T, Alloc>::CircularBufferTraits(size_t size, const T& value, const Alloc& allocator)
+CircularBufferTraits<T, Alloc>::CircularBufferTraits(size_type size, const_reference value, const Alloc& allocator)
         :
         allocator_type(allocator),
         buff_start_(AllocTraits::allocate(*this, size + 1)),
         buff_end_(buff_start_ + size + 1),
         actual_start_(buff_start_),
         actual_end_(buff_end_) {
-    size_t current = 0;
+    size_type current = 0;
     try {
         for (; current < size; ++current) {
             AllocTraits::construct(*this, actual_start_ + current, value);
         }
     } catch (...) {
-        for (size_t i = 0; i < current; ++i) {
+        for (size_type i = 0; i < current; ++i) {
             AllocTraits::destroy(*this, actual_start_ + i);
         }
         AllocTraits::deallocate(*this, buff_start_, size + 1);
@@ -209,26 +196,54 @@ CircularBufferTraits<T, Alloc>::CircularBufferTraits(size_t size, const T& value
 }
 
 
-// TODO same size but not same capacity !!!
+template<typename T, typename Alloc>
+template<typename LegacyInputIterator>
+CircularBufferTraits<T, Alloc>::CircularBufferTraits(LegacyInputIterator i, LegacyInputIterator j,
+                                                     const Alloc& allocator)
+        :
+        allocator_type(allocator),
+        buff_start_(AllocTraits::allocate(*this, std::distance(i, j) + 1)),
+        buff_end_(buff_start_ + std::distance(i, j) + 1),
+        actual_start_(buff_start_),
+        actual_end_(buff_end_ + 1) {
+    try {
+        my_uninitialized_copy(i, j, actual_start_, *this);
+    } catch (...) {
+        AllocTraits::deallocate(*this, buff_start_, std::distance(buff_start_, buff_end_));
+        throw;
+    }
+}
+
+template<typename T, typename Alloc>
+CircularBufferTraits<T, Alloc>::CircularBufferTraits(const std::initializer_list<value_type>& list,
+                                                     const Alloc& allocator)
+        :
+        allocator_type(allocator),
+        buff_start_(AllocTraits::allocate(*this, list.size() + 1)),
+        buff_end_(buff_start_ + list.size() + 1),
+        actual_start_(buff_start_),
+        actual_end_(buff_end_ - 1) {
+    try {
+        my_uninitialized_copy(list.begin(), list.end(), actual_start_, *this);
+    } catch (...) {
+        AllocTraits::deallocate(*this, buff_start_, list.size() + 1);
+        throw;
+    }
+}
+
+
 template<typename T, typename Alloc>
 CircularBufferTraits<T, Alloc>::CircularBufferTraits(const CircularBufferTraits& other)
         :
         allocator_type(AllocTraits::select_on_container_copy_construction(other)),
-        buff_start_(AllocTraits::allocate(*this, other.capacity() + 1)),
-        buff_end_(buff_start_ + other.capacity() + 1),
+        buff_start_(AllocTraits::allocate(*this, other.size() + 1)),
+        buff_end_(buff_start_ + other.size() + 1),
         actual_start_(buff_start_),
         actual_end_(actual_start_ + other.size()) {
-    std::size_t i = 0;
     try {
-        for (; i < other.size(); ++i) {
-            AllocTraits::construct(*this, actual_start_ + i, other[i]);
-        }
+        my_uninitialized_copy(other.begin(), other.end(), buff_start_, *this);
     } catch (...) {
-        for (std::size_t j = 0; j < i; ++j) {
-            AllocTraits::destroy(*this, actual_start_ + j);
-        }
         AllocTraits::deallocate(*this, buff_start_, capacity() + 1);
-        throw;
     }
 }
 
@@ -259,10 +274,8 @@ CircularBufferTraits<T, Alloc>& CircularBufferTraits<T, Alloc>::operator=(const 
             throw;
         }
 
-        for (auto it = cbegin(); it != cend(); ++it) {
-            AllocTraits::destroy(*this, std::addressof(*it));
-        }
-        AllocTraits::deallocate(*this, buff_start_, std::distance(buff_start_, buff_end_));
+        clear();
+        AllocTraits::deallocate(*this, buff_start_, capacity() + 1);
 
         static_cast<allocator_type&>(*this) = std::move(allocator);
         buff_start_ = new_buff_start;
@@ -273,7 +286,7 @@ CircularBufferTraits<T, Alloc>& CircularBufferTraits<T, Alloc>::operator=(const 
         return *this;
     }
 
-    T* new_buff_start = AllocTraits::allocate(*this, other.size() + 1);
+    pointer new_buff_start = AllocTraits::allocate(*this, other.size() + 1);
     try {
         my_uninitialized_copy(other.begin(), other.end(), new_buff_start, *this);
     } catch (...) {
@@ -281,9 +294,7 @@ CircularBufferTraits<T, Alloc>& CircularBufferTraits<T, Alloc>::operator=(const 
         throw;
     }
 
-    for (auto it = begin(); it != end(); ++it) {
-        AllocTraits::destroy(*this, std::addressof(*it));
-    }
+    clear();
     AllocTraits::deallocate(*this, buff_start_, std::distance(buff_start_, buff_end_));
 
     buff_start_ = new_buff_start;
@@ -300,9 +311,7 @@ CircularBufferTraits<T, Alloc>& CircularBufferTraits<T, Alloc>::operator=(Circul
         return *this;
     }
     if constexpr (AllocTraits::propagate_on_container_move_assignment::value) {
-        for (auto it = begin(); it != end(); ++it) {
-            AllocTraits::destroy(*this, std::addressof(*it));
-        }
+        clear();
         AllocTraits::deallocate(*this, buff_start_, std::distance(buff_start_, buff_end_));
         static_cast<allocator_type&>(*this) = std::move(static_cast<allocator_type&>(other));
         buff_start_ = other.buff_start_;
@@ -314,7 +323,45 @@ CircularBufferTraits<T, Alloc>& CircularBufferTraits<T, Alloc>::operator=(Circul
         return *this;
     }
 
-    //TODO: else
+    pointer new_buff_start = AllocTraits::allocate(*this, other.capacity() + 1);
+    try {
+        my_uninitialized_move(other.begin(), other.end(), new_buff_start, *this);
+    } catch (...) {
+        AllocTraits::deallocate(*this, new_buff_start, other.capacity() + 1);
+        throw;
+    }
+
+    clear();
+    AllocTraits::deallocate(*this, buff_start_, std::distance(buff_start_, buff_end_));
+    buff_start_ = new_buff_start;
+    buff_end_ = new_buff_start + other.capacity() + 1;
+    actual_start_ = buff_start_;
+    actual_end_ = actual_start_ + other.size();
+
+    // Perhaps it is necessary to deallocate memory that other takes, but I am not sure
+    return *this;
+}
+
+template<typename T, typename Alloc>
+CircularBufferTraits<T, Alloc>&
+CircularBufferTraits<T, Alloc>::operator=(const std::initializer_list<value_type>& list) {
+    pointer new_arr = AllocTraits::allocate(*this, list.size() + 1);
+
+    try {
+        my_uninitialized_copy(list.begin(), list.end(), new_arr, *this);
+    } catch (...) {
+        AllocTraits::deallocate(*this, new_arr, list.size() + 1);
+        throw;
+    }
+
+    clear();
+    AllocTraits::deallocate(*this, buff_start_, capacity() + 1);
+
+    buff_start_ = new_arr;
+    buff_end_ = buff_start_ + list.size() + 1;
+    actual_start_ = buff_start_;
+    actual_end_ = buff_end_ - 1;
+
     return *this;
 }
 
@@ -329,17 +376,15 @@ CircularBufferTraits<T, Alloc>::size_type CircularBufferTraits<T, Alloc>::capaci
 }
 
 template<typename T, typename Alloc>
-CircularBufferTraits<T, Alloc>::reference CircularBufferTraits<T, Alloc>::operator[](std::size_t i) {
+CircularBufferTraits<T, Alloc>::reference CircularBufferTraits<T, Alloc>::operator[](size_type i) {
     return *(begin() + i);
 }
 
 template<typename T, typename Alloc>
-CircularBufferTraits<T, Alloc>::const_reference CircularBufferTraits<T, Alloc>::operator[](std::size_t i) const {
+CircularBufferTraits<T, Alloc>::const_reference CircularBufferTraits<T, Alloc>::operator[](size_type i) const {
     return *(cbegin() + i);
 }
 
-
-//TODO ITERATOR TOOLS
 template<typename T, typename Alloc>
 CircularBufferTraits<T, Alloc>::iterator CircularBufferTraits<T, Alloc>::begin() noexcept {
     return CircularBufferTraits::iterator(actual_start_, buff_start_, buff_end_, actual_start_, actual_end_);
@@ -401,6 +446,7 @@ CircularBufferTraits<T, Alloc>::const_reverse_iterator CircularBufferTraits<T, A
     return const_reverse_iterator(const_iterator(actual_start_, buff_start_, buff_end_, actual_start_, actual_end_));
 }
 
+
 template<typename T, typename Alloc>
 bool CircularBufferTraits<T, Alloc>::operator==(const CircularBufferTraits& other) const noexcept {
     if (this == &other) {
@@ -410,11 +456,57 @@ bool CircularBufferTraits<T, Alloc>::operator==(const CircularBufferTraits& othe
 }
 
 template<typename T, typename Alloc>
-void CircularBufferTraits<T, Alloc>::swap(CircularBufferTraits& other) noexcept {
-    std::swap(buff_start_, other.buff_start_);
-    std::swap(buff_end_, other.buff_end_);
-    std::swap(actual_start_, other.actual_start_);
-    std::swap(actual_end_, other.actual_end_);
+void CircularBufferTraits<T, Alloc>::swap(CircularBufferTraits& other) {
+    if (this == &other) {
+        return;
+    }
+    if constexpr (AllocTraits::propagate_on_container_swap::value) {
+        std::swap(static_cast<allocator_type&>(*this), static_cast<allocator_type&>(other));
+        std::swap(buff_start_, other.buff_start_);
+        std::swap(buff_end_, other.buff_end_);
+        std::swap(actual_start_, other.actual_start_);
+        std::swap(actual_end_, other.actual_end_);
+        return;
+    }
+    const size_type this_old_size = this->size();
+    const size_type this_old_capacity = this->capacity();
+    const size_type other_old_size = other.size();
+    const size_type other_old_capacity = other.capacity();
+
+    pointer new_this_buff_start = AllocTraits::allocate(*this, other_old_capacity + 1);
+    pointer new_other_buff_start;
+    try {
+        new_other_buff_start = AllocTraits::allocate(other, this_old_size + 1);
+    } catch (...) {
+        AllocTraits::deallocate(*this, new_this_buff_start, other_old_capacity + 1);
+        throw;
+    }
+
+    try {
+        my_uninitialized_move(this->begin(), this->end(), new_other_buff_start, other);
+        my_uninitialized_move(other.begin(), other.end(), new_this_buff_start, *this);
+    } catch (...) {
+        AllocTraits::deallocate(*this, new_this_buff_start, other_old_capacity + 1);
+        AllocTraits::deallocate(other, new_other_buff_start, this_old_capacity + 1);
+        throw;
+    }
+
+
+    clear();
+    other.clear();
+    AllocTraits::deallocate(*this, this->buff_start_, this_old_capacity + 1);
+    AllocTraits::deallocate(other, other.buff_start_, other_old_capacity + 1);
+
+    this->buff_start_ = new_this_buff_start;
+    this->buff_end_ = new_this_buff_start + other_old_capacity + 1;
+    this->actual_start_ = this->buff_start_;
+    this->actual_end_ = this->actual_start_ + other_old_size;
+
+    other.buff_start_ = new_other_buff_start;
+    other.buff_end_ = new_other_buff_start + this_old_capacity + 1;
+    other.actual_start_ = other.buff_start_;
+    other.actual_end_ = other.actual_start_ + this_old_size;
+
 }
 
 template<typename T, typename Alloc>
@@ -433,20 +525,19 @@ CircularBufferTraits<T, Alloc>::size_type CircularBufferTraits<T, Alloc>::max_si
 }
 
 template<typename T, typename Alloc>
-void CircularBufferTraits<T, Alloc>::reserve(CircularBufferTraits<T, Alloc>::size_type n) noexcept {
+void CircularBufferTraits<T, Alloc>::reserve(CircularBufferTraits<T, Alloc>::size_type n) {
     if (capacity() >= n) {
         return;
     }
     auto new_buff_start = AllocTraits::allocate(*this, n + 1);
     try {
-        my_uninitialized_copy(begin(), end(), new_buff_start, *this);
+        my_uninitialized_move(begin(), end(), new_buff_start, *this);
     } catch (...) {
         AllocTraits::deallocate(*this, new_buff_start, n + 1);
+        throw;
     }
     auto old_size = size();
-    for (auto it = begin(); it != end(); ++it) {
-        AllocTraits::destroy(*this, std::addressof(*it));
-    }
+    clear();
     AllocTraits::deallocate(*this, buff_start_, capacity() + 1);
 
     buff_start_ = new_buff_start;
@@ -455,3 +546,129 @@ void CircularBufferTraits<T, Alloc>::reserve(CircularBufferTraits<T, Alloc>::siz
     actual_end_ = actual_start_ + old_size;
 }
 
+template<typename T, typename Alloc>
+void CircularBufferTraits<T, Alloc>::resize(size_type n, const value_type& value) {
+    if (n == size()) {
+        return;
+    }
+    if (n > capacity()) {
+        reserve(n);
+    }
+    if (n > size()) {
+        size_type number_of_new_values = n - size();
+        size_type i = 0;
+        try {
+            for (; i < number_of_new_values; ++i) {
+                AllocTraits::construct(*this, actual_end_, value);
+                actual_end_ = (actual_end_ + 1 == buff_end_ ? buff_start_ : actual_end_ + 1);
+            }
+        } catch (...) {
+            for (size_type j = 0; j < i; ++j) {
+                actual_end_ = (actual_end_ == buff_start_ ? buff_end_ - 1 : actual_end_ - 1);
+                AllocTraits::destroy(*this, actual_end_ + j);
+            }
+            throw;
+        }
+        return;
+    }
+    size_type number_of_values_to_remove = size() - n;
+    for (size_type i = 0; i < number_of_values_to_remove; ++i) {
+        actual_end_ = (actual_end_ == buff_start_ ? buff_end_ - 1 : actual_end_ - 1);
+        AllocTraits::destroy(*this, actual_end_);
+    }
+}
+
+template<typename T, typename Alloc>
+CircularBufferTraits<T, Alloc>::iterator CircularBufferTraits<T, Alloc>::erase(CircularBufferTraits::const_iterator q) {
+    if (std::addressof(*q) < buff_start_ || std::addressof(*q) >= buff_end_) {
+        throw -1; // TODO EXCEPTIONS
+    }
+    size_type index = q - cbegin();
+    if (index >= size()) {
+        throw -1; // TODO EXCEPTIONS
+    }
+    for (auto it = begin() + index; index < size() - 1; ++index, ++it) {
+        *it = std::move_if_noexcept(*(it + 1));
+    }
+    actual_end_ = (actual_end_ == buff_start_ ? buff_end_ - 1 : actual_end_ - 1);
+    AllocTraits::destroy(*this, actual_end_);
+
+    return begin() + index;
+}
+
+template<typename T, typename Alloc>
+CircularBufferTraits<T, Alloc>::iterator CircularBufferTraits<T, Alloc>::erase(CircularBufferTraits::const_iterator q1,
+                                                                               CircularBufferTraits::const_iterator q2) {
+    if (std::addressof(*q1) < buff_start_ || std::addressof(*q1) >= buff_end_ ||
+        std::addressof(*q2) < buff_start_ || std::addressof(*q2) >= buff_end_) {
+        throw -1; // TODO EXCEPTIONS
+    }
+    const size_type index_start = q1 - cbegin();
+    const size_type index_end = (q2 - cbegin()) - 1;
+    const size_type number_of_elements = index_end - index_start + 1;
+    if (index_start >= size() || index_end >= size()) {
+        throw -1; // TODO EXCEPTIONS
+    }
+
+    for (auto it = q1; it != q2; ++it) {
+        AllocTraits::destroy(*this, std::addressof(*it));
+    }
+    for (auto it = begin() + index_end + 1; it != end(); ++it) {
+        *(it - number_of_elements) = std::move_if_noexcept(*it);
+    }
+
+    return begin() + index_start;
+}
+
+template<typename T, typename Alloc>
+void CircularBufferTraits<T, Alloc>::clear() noexcept {
+    for (auto it = cbegin(); it != cend(); ++it) {
+        AllocTraits::destroy(*this, std::addressof(*it));
+    }
+    actual_start_ = buff_start_;
+    actual_end_ = buff_start_;
+}
+
+template<typename T, typename Alloc>
+void CircularBufferTraits<T, Alloc>::assign(CircularBufferTraits::size_type n, const_reference value) {
+    pointer new_arr = AllocTraits::allocate(*this, n + 1);
+    try {
+        my_uninitialized_copy(n, value, new_arr, *this);
+    } catch (...) {
+        AllocTraits ::deallocate(*this, new_arr, n + 1);
+        throw;
+    }
+    clear();
+    AllocTraits::deallocate(*this, buff_start_, capacity() + 1);
+
+    buff_start_ = new_arr;
+    buff_end_ = new_arr + n + 1;
+    actual_start_ = buff_start_;
+    actual_end_ = buff_end_ - 1;
+}
+
+template<typename T, typename Alloc>
+template<typename LegacyInputIterator>
+void CircularBufferTraits<T, Alloc>::assign(LegacyInputIterator i, LegacyInputIterator j) {
+    size_type new_size = std::distance(i, j);
+    pointer new_arr = AllocTraits ::allocate(*this, new_size + 1);
+    try {
+        my_uninitialized_copy(i, j, new_arr, *this);
+    } catch (...) {
+        AllocTraits ::deallocate(*this, new_arr, new_size + 1);
+        throw;
+    }
+
+    clear();
+    AllocTraits::deallocate(*this, buff_start_, capacity() + 1);
+
+    buff_start_ = new_arr;
+    buff_end_ = new_arr + new_size + 1;
+    actual_start_ = buff_start_;
+    actual_end_ = buff_end_ - 1;
+}
+
+template<typename T, typename Alloc>
+void CircularBufferTraits<T, Alloc>::assign(const std::initializer_list<value_type>& il) {
+    assign(il.begin(), il.end());
+}

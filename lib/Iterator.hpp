@@ -166,7 +166,7 @@ CommonIterator<T> CommonIterator<T>::operator-(int n) const noexcept {
         return this->operator+(-n);
     }
     const auto distance_to_start = std::distance(buff_start_, current_);
-    if (n < distance_to_start) {
+    if (n <= distance_to_start) {
         return CommonIterator(current_ - n, buff_start_, buff_end_, actual_start_, actual_end_);
     }
     return CommonIterator(buff_end_ - (n - distance_to_start) % std::distance(buff_start_, buff_end_) - 1, buff_start_,
@@ -190,7 +190,7 @@ CommonIterator<T>& CommonIterator<T>::operator-=(int n) noexcept {
 
 template<typename T>
 typename CommonIterator<T>::difference_type
-CommonIterator<T>::operator-(const CommonIterator<T>& other) const { //TODO REWRITE METHOD
+CommonIterator<T>::operator-(const CommonIterator<T>& other) const {
     // *this - other
     if (buff_start_ != other.buff_start_ || buff_end_ != other.buff_end_) {
         throw -1; //TODO DIFFERENT ITERATORS EXCEPTION
