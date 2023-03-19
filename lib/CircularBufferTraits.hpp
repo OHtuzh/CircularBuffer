@@ -4,13 +4,6 @@
 #include "uninitialized_copy_modified.hpp"
 
 
-/*TODO
- * reserve()
- * resize()
- * insert()
- * erase()
- */
-
 #define USING_FIELDS \
     using typename CircularBufferTraits<T, Alloc>::allocator_type; \
     using typename CircularBufferTraits<T, Alloc>::AllocTraits; \
@@ -581,11 +574,11 @@ void CircularBufferTraits<T, Alloc>::resize(size_type n, const value_type& value
 template<typename T, typename Alloc>
 CircularBufferTraits<T, Alloc>::iterator CircularBufferTraits<T, Alloc>::erase(CircularBufferTraits::const_iterator q) {
     if (std::addressof(*q) < buff_start_ || std::addressof(*q) >= buff_end_) {
-        throw -1; // TODO EXCEPTIONS
+        throw std::out_of_range("Iterator is out of bounds");
     }
     size_type index = q - cbegin();
     if (index >= size()) {
-        throw -1; // TODO EXCEPTIONS
+        throw std::out_of_range("Iterator is out of bounds");
     }
     for (auto it = begin() + index; index < size() - 1; ++index, ++it) {
         *it = std::move_if_noexcept(*(it + 1));
@@ -601,13 +594,13 @@ CircularBufferTraits<T, Alloc>::iterator CircularBufferTraits<T, Alloc>::erase(C
                                                                                CircularBufferTraits::const_iterator q2) {
     if (std::addressof(*q1) < buff_start_ || std::addressof(*q1) >= buff_end_ ||
         std::addressof(*q2) < buff_start_ || std::addressof(*q2) >= buff_end_) {
-        throw -1; // TODO EXCEPTIONS
+        throw std::out_of_range("Iterator is out of bounds");
     }
     const size_type index_start = q1 - cbegin();
     const size_type index_end = (q2 - cbegin()) - 1;
     const size_type number_of_elements = index_end - index_start + 1;
     if (index_start >= size() || index_end >= size()) {
-        throw -1; // TODO EXCEPTIONS
+        throw std::out_of_range("Iterator is out of bounds");
     }
 
     for (auto it = q1; it != q2; ++it) {

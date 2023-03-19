@@ -172,11 +172,11 @@ template<typename T, typename Alloc>
 CircularBufferExt<T, Alloc>::iterator
 CircularBufferExt<T, Alloc>::insert(CircularBufferExt<T, Alloc>::iterator p, const_reference value) {
     if (std::addressof(*p) < buff_start_ || std::addressof(*p) >= buff_end_) {
-        throw -1; // TODO EXCEPTIONS
+        throw std::out_of_range("Iterator is out of bounds");
     }
     size_type index = p - begin();
     if (index > size()) {
-        throw -1; // TODO EXCEPTIONS
+        throw std::out_of_range("Iterator is out of bounds");
     }
 
     if (size() == capacity()) {
@@ -206,11 +206,11 @@ template<typename T, typename Alloc>
 CircularBufferExt<T, Alloc>::iterator
 CircularBufferExt<T, Alloc>::insert(CircularBufferExt<T, Alloc>::iterator p, value_type&& rv) {
     if (std::addressof(*p) < buff_start_ || std::addressof(*p) >= buff_end_) {
-        throw -1; // TODO EXCEPTIONS
+        throw std::out_of_range("Iterator is out of bounds");
     }
     size_type index = p - begin();
     if (index > size()) {
-        throw -1; // TODO EXCEPTIONS
+        throw std::out_of_range("Iterator is out of bounds");
     }
 
     if (size() == capacity()) {
@@ -241,14 +241,14 @@ CircularBufferExt<T, Alloc>::iterator
 CircularBufferExt<T, Alloc>::insert(CircularBufferExt<T, Alloc>::iterator p, CircularBufferExt<T, Alloc>::size_type n,
                                  const_reference value) {
     if (std::addressof(*p) < buff_start_ || std::addressof(*p) >= buff_end_) {
-        throw -1; // TODO EXCEPTIONS
+        throw std::out_of_range("Iterator is out of bounds");
     }
     if (n == 0) {
         return p;
     }
     size_type index = p - begin();
     if (index > size()) {
-        throw -1; // TODO EXCEPTIONS
+        throw std::out_of_range("Iterator is out of bounds");
     }
 
     size_type target_capacity = capacity();
@@ -289,11 +289,11 @@ template<typename... Args>
 CircularBufferExt<T, Alloc>::iterator
 CircularBufferExt<T, Alloc>::emplace(CircularBufferExt<T, Alloc>::iterator p, Args&& ... args) {
     if (std::addressof(*p) < buff_start_ || std::addressof(*p) >= buff_end_) {
-        throw -1; // TODO EXCEPTIONS
+        throw std::out_of_range("Iterator is out of bounds");
     }
     size_type index = p - begin();
     if (index > size()) {
-        throw -1; // TODO EXCEPTIONS
+        throw std::out_of_range("Iterator is out of bounds");
     }
 
     if (size() == capacity()) {
@@ -324,7 +324,7 @@ template<typename LegacyInputIterator>
 CircularBufferExt<T, Alloc>::iterator
 CircularBufferExt<T, Alloc>::insert(CircularBufferExt<T, Alloc>::iterator p, LegacyInputIterator i, LegacyInputIterator j) {
     if (std::addressof(*p) < buff_start_ || std::addressof(*p) >= buff_end_) {
-        throw -1; // TODO EXCEPTIONS
+        throw std::out_of_range("Iterator is out of bounds");
     }
     size_type n = std::distance(i, j);
     if (n == 0) {
@@ -332,7 +332,7 @@ CircularBufferExt<T, Alloc>::insert(CircularBufferExt<T, Alloc>::iterator p, Leg
     }
     size_type index = p - begin();
     if (index > size()) {
-        throw -1; // TODO EXCEPTIONS
+        throw std::out_of_range("Iterator is out of bounds");
     }
 
     size_type target_capacity = capacity();

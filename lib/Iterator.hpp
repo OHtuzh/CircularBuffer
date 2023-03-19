@@ -193,7 +193,7 @@ typename CommonIterator<T>::difference_type
 CommonIterator<T>::operator-(const CommonIterator<T>& other) const {
     // *this - other
     if (buff_start_ != other.buff_start_ || buff_end_ != other.buff_end_) {
-        throw -1; //TODO DIFFERENT ITERATORS EXCEPTION
+        throw std::out_of_range("Iterator is out of bounds");
     }
     if (current_ >= actual_start_) {
         if (other.current_ >= actual_start_) {
