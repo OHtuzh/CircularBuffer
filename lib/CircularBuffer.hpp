@@ -68,20 +68,20 @@ public:
     template<typename... Args>
     void emplace_front(Args&& ... args);
 
-    iterator insert(iterator p, const_reference value);
+    iterator insert(const_iterator p, const_reference value);
 
-    iterator insert(iterator p, value_type&& rv);
+    iterator insert(const_iterator p, value_type&& rv);
 
-    iterator insert(iterator p, size_type n, const_reference value);
+    iterator insert(const_iterator p, size_type n, const_reference value);
 
     template<typename... Args>
-    iterator emplace(iterator p, Args&& ... args);
+    iterator emplace(const_iterator p, Args&& ... args);
 
     template<typename LegacyInputIterator>
     requires std::input_iterator<LegacyInputIterator>
-    iterator insert(iterator p, LegacyInputIterator i, LegacyInputIterator j);
+    iterator insert(const_iterator p, LegacyInputIterator i, LegacyInputIterator j);
 
-    iterator insert(iterator p, const std::initializer_list<value_type>& il);
+    iterator insert(const_iterator p, const std::initializer_list<value_type>& il);
 
     bool operator==(const CircularBuffer& other) const noexcept;
 
@@ -201,7 +201,7 @@ void CircularBuffer<T, Alloc>::emplace_front(Args&& ... args) {
 
 template<typename T, typename Alloc>
 CircularBuffer<T, Alloc>::iterator
-CircularBuffer<T, Alloc>::insert(CircularBuffer<T, Alloc>::iterator p, const_reference value) {
+CircularBuffer<T, Alloc>::insert(CircularBuffer<T, Alloc>::const_iterator p, const_reference value) {
     if (std::addressof(*p) < buff_start_ || std::addressof(*p) >= buff_end_) {
         throw std::out_of_range("Iterator is out of bounds");
     }
@@ -233,7 +233,7 @@ CircularBuffer<T, Alloc>::insert(CircularBuffer<T, Alloc>::iterator p, const_ref
 
 template<typename T, typename Alloc>
 CircularBuffer<T, Alloc>::iterator
-CircularBuffer<T, Alloc>::insert(CircularBuffer<T, Alloc>::iterator p, value_type&& rv) {
+CircularBuffer<T, Alloc>::insert(CircularBuffer<T, Alloc>::const_iterator p, value_type&& rv) {
     if (std::addressof(*p) < buff_start_ || std::addressof(*p) >= buff_end_) {
         throw std::out_of_range("Iterator is out of bounds");
     }
@@ -251,28 +251,28 @@ CircularBuffer<T, Alloc>::insert(CircularBuffer<T, Alloc>::iterator p, value_typ
         return begin();
     }
     auto last = --end();
-    p = begin() + index;
+    auto it = begin() + index;
     AllocTraits::construct(*this, actual_end_, std::move_if_noexcept(*last));
     actual_end_ = (actual_end_ + 1 == buff_end_ ? buff_start_ : actual_end_ + 1);
-    for (; last != p; --last) {
+    for (; last != it; --last) {
         *last = std::move_if_noexcept(*(last - 1));
     }
-    *p = std::move_if_noexcept(rv);
-    return p;
+    *it = std::move_if_noexcept(rv);
+    return it;
 }
 
 
 template<typename T, typename Alloc>
 CircularBuffer<T, Alloc>::iterator
-CircularBuffer<T, Alloc>::insert(CircularBuffer<T, Alloc>::iterator p, CircularBuffer<T, Alloc>::size_type n,
+CircularBuffer<T, Alloc>::insert(CircularBuffer<T, Alloc>::const_iterator p, CircularBuffer<T, Alloc>::size_type n,
                                  const_reference value) {
     if (std::addressof(*p) < buff_start_ || std::addressof(*p) >= buff_end_) {
         throw std::out_of_range("Iterator is out of bounds");
     }
-    if (n == 0) {
-        return p;
-    }
     size_type index = p - begin();
+    if (n == 0) {
+        return begin() + index;
+    }
     if (index > size()) {
         throw std::out_of_range("Iterator is out of bounds");
     }
@@ -295,21 +295,21 @@ CircularBuffer<T, Alloc>::insert(CircularBuffer<T, Alloc>::iterator p, CircularB
     actual_end_ = (actual_end_ + n >= buff_end_ ? actual_end_ = buff_start_ + ((actual_end_ + n) - buff_end_) :
                    actual_end_ + n);
 
-    p = begin() + index;
-    for (auto it = end() - n; it != p; --it) {
+    auto to_insert = begin() + index;
+    for (auto it = end() - n; it != to_insert; --it) {
         AllocTraits::construct(*this, std::addressof(*(it + n - 1)), std::move_if_noexcept(*(it - 1)));
     }
     for (size_type i = 0; i < n; ++i) {
-        AllocTraits::construct(*this, std::addressof(p[i]), value);
+        AllocTraits::construct(*this, std::addressof(to_insert[i]), value);
     }
 
-    return p;
+    return to_insert;
 }
 
 template<typename T, typename Alloc>
 template<typename... Args>
 CircularBuffer<T, Alloc>::iterator
-CircularBuffer<T, Alloc>::emplace(CircularBuffer<T, Alloc>::iterator p, Args&& ... args) {
+CircularBuffer<T, Alloc>::emplace(CircularBuffer<T, Alloc>::const_iterator p, Args&& ... args) {
     if (std::addressof(*p) < buff_start_ || std::addressof(*p) >= buff_end_) {
         throw std::out_of_range("Iterator is out of bounds");
     }
@@ -327,29 +327,30 @@ CircularBuffer<T, Alloc>::emplace(CircularBuffer<T, Alloc>::iterator p, Args&& .
         return begin();
     }
     auto last = --end();
-    p = begin() + index;
+    auto it = begin() + index;
     AllocTraits::construct(*this, actual_end_, std::move_if_noexcept(*last));
     actual_end_ = (actual_end_ + 1 == buff_end_ ? buff_start_ : actual_end_ + 1);
-    for (; last != p; --last) {
+    for (; last != it; --last) {
         *last = std::move_if_noexcept(*(last - 1));
     }
-    *p = value_type(std::forward<Args>(args)...);
-    return p;
+    *it = value_type(std::forward<Args>(args)...);
+    return it;
 }
 
 template<typename T, typename Alloc>
 template<typename LegacyInputIterator>
 requires std::input_iterator<LegacyInputIterator>
 CircularBuffer<T, Alloc>::iterator
-CircularBuffer<T, Alloc>::insert(CircularBuffer<T, Alloc>::iterator p, LegacyInputIterator i, LegacyInputIterator j) {
+CircularBuffer<T, Alloc>::insert(CircularBuffer<T, Alloc>::const_iterator p, LegacyInputIterator i, LegacyInputIterator j) {
     if (std::addressof(*p) < buff_start_ || std::addressof(*p) >= buff_end_) {
         throw std::out_of_range("Iterator is out of bounds");
     }
+    size_type index = p - begin();
     size_type n = std::distance(i, j);
     if (n == 0) {
-        return p;
+        return begin() + index;
     }
-    size_type index = p - begin();
+
     if (index > size()) {
         throw std::out_of_range("Iterator is out of bounds");
     }
@@ -372,20 +373,20 @@ CircularBuffer<T, Alloc>::insert(CircularBuffer<T, Alloc>::iterator p, LegacyInp
     actual_end_ = (actual_end_ + n >= buff_end_ ? actual_end_ = buff_start_ + ((actual_end_ + n) - buff_end_) :
                    actual_end_ + n);
 
-    p = begin() + index;
-    for (auto it = end() - n; it != p; --it) {
+    auto to_insert = begin() + index;
+    for (auto it = end() - n; it != to_insert; --it) {
         AllocTraits::construct(*this, std::addressof(*(it + n - 1)), std::move_if_noexcept(*(it - 1)));
     }
     for (size_type k = 0; k < n; ++i, ++k) {
-        AllocTraits::construct(*this, std::addressof(p[k]), *i);
+        AllocTraits::construct(*this, std::addressof(to_insert[k]), *i);
     }
 
-    return p;
+    return to_insert;
 }
 
 template<typename T, typename Alloc>
 CircularBuffer<T, Alloc>::iterator
-CircularBuffer<T, Alloc>::insert(CircularBuffer<T, Alloc>::iterator p, const std::initializer_list<value_type>& il) {
+CircularBuffer<T, Alloc>::insert(CircularBuffer<T, Alloc>::const_iterator p, const std::initializer_list<value_type>& il) {
     return insert(p, il.begin(), il.end());
 }
 
