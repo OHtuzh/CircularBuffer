@@ -15,6 +15,10 @@ public:
 
     CommonIterator() = default;
 
+    CommonIterator(const CommonIterator<T>& other) = default;
+
+    CommonIterator(const CommonIterator<std::remove_const_t<T>>& other) requires std::is_const_v<T>;
+
     CommonIterator(pointer current, pointer buff_start, pointer buff_end, pointer actual_start, pointer actual_end);
 
     ~CommonIterator() noexcept = default;
@@ -57,6 +61,8 @@ public:
 
 
 private:
+    friend CommonIterator<const std::remove_const_t<T>>;
+
     pointer current_;
     pointer buff_start_;
     pointer buff_end_;
@@ -64,7 +70,14 @@ private:
     pointer actual_end_;
 };
 
-
+template<typename T>
+CommonIterator<T>::CommonIterator(const CommonIterator<std::remove_const_t<T>>& other) requires std::is_const_v<T>
+        :
+        current_(other.current_),
+        buff_start_(other.buff_start_),
+        buff_end_(other.buff_end_),
+        actual_start_(other.actual_start_),
+        actual_end_(other.actual_end_) {}
 
 
 template<typename T>
