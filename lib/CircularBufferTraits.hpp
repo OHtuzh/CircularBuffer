@@ -33,7 +33,11 @@
     using CircularBufferTraits<T, Alloc>::resize; \
     using CircularBufferTraits<T, Alloc>::erase; \
     using CircularBufferTraits<T, Alloc>::clear; \
-    using CircularBufferTraits<T, Alloc>::assign;
+    using CircularBufferTraits<T, Alloc>::assign; \
+    using CircularBufferTraits<T, Alloc>::pop_back; \
+    using CircularBufferTraits<T, Alloc>::pop_front; \
+    using CircularBufferTraits<T, Alloc>::front; \
+    using CircularBufferTraits<T, Alloc>::back;
 
 
 template<typename T, typename Alloc = std::allocator<T>>
@@ -65,6 +69,7 @@ public:
     CircularBufferTraits(size_type size, const_reference value, const Alloc& allocator = Alloc());
 
     template<typename LegacyInputIterator>
+    requires std::input_iterator<LegacyInputIterator>
     CircularBufferTraits(LegacyInputIterator i, LegacyInputIterator j, const Alloc& allocator = Alloc());
 
     CircularBufferTraits(const std::initializer_list<value_type>& list, const Alloc& allocator = Alloc());
@@ -118,6 +123,7 @@ public:
     void assign(size_type n, const_reference value);
 
     template<typename LegacyInputIterator>
+    requires std::input_iterator<LegacyInputIterator>
     void assign(LegacyInputIterator i, LegacyInputIterator j);
 
     void assign(const std::initializer_list<value_type>& il);
@@ -126,6 +132,9 @@ public:
 
     bool operator!=(const CircularBufferTraits& other) const noexcept;
 
+    value_type pop_back();
+
+    value_type pop_front();
 
     size_type size() const noexcept;
 
@@ -135,10 +144,18 @@ public:
 
     bool empty() const noexcept;
 
+    reference front();
+
+    const_reference front() const;
+
+    reference back();
+
+    const_reference back() const;
 
     void reserve(size_type n);
 
     void resize(size_type n, const value_type& value = value_type());
+
 
 protected:
     pointer buff_start_;
@@ -164,7 +181,7 @@ CircularBufferTraits<T, Alloc>::CircularBufferTraits(size_type size, const Alloc
         buff_start_(AllocTraits::allocate(*this, size + 1)),
         buff_end_(buff_start_ + size + 1),
         actual_start_(buff_start_),
-        actual_end_(buff_start_ + size) {}
+        actual_end_(buff_start_) {}
 
 template<typename T, typename Alloc>
 CircularBufferTraits<T, Alloc>::CircularBufferTraits(size_type size, const_reference value, const Alloc& allocator)
@@ -191,6 +208,7 @@ CircularBufferTraits<T, Alloc>::CircularBufferTraits(size_type size, const_refer
 
 template<typename T, typename Alloc>
 template<typename LegacyInputIterator>
+requires std::input_iterator<LegacyInputIterator>
 CircularBufferTraits<T, Alloc>::CircularBufferTraits(LegacyInputIterator i, LegacyInputIterator j,
                                                      const Alloc& allocator)
         :
@@ -359,6 +377,29 @@ CircularBufferTraits<T, Alloc>::operator=(const std::initializer_list<value_type
 }
 
 template<typename T, typename Alloc>
+CircularBufferTraits<T, Alloc>::value_type CircularBufferTraits<T, Alloc>::pop_back() {
+    if (size() == 0) {
+        throw std::out_of_range("Trying to pop_back() from an empty buffer");
+    }
+    actual_end_ = (actual_end_ == buff_start_ ? buff_end_ - 1 : actual_end_ - 1);
+    auto to_return = std::move(*actual_end_);
+    AllocTraits::destroy(*this, actual_end_);
+    return to_return;
+}
+
+template<typename T, typename Alloc>
+CircularBufferTraits<T, Alloc>::value_type CircularBufferTraits<T, Alloc>::pop_front() {
+    if (size() == 0) {
+        throw std::out_of_range("Trying to pop_back() from an empty buffer");
+    }
+    auto to_return = std::move(*actual_start_);
+    AllocTraits::destroy(*this, actual_start_);
+    actual_start_ = (actual_start_ + 1 == buff_end_ ? buff_start_ : actual_start_ + 1);
+
+    return to_return;
+}
+
+template<typename T, typename Alloc>
 CircularBufferTraits<T, Alloc>::size_type CircularBufferTraits<T, Alloc>::size() const noexcept {
     return std::distance(cbegin(), cend());
 }
@@ -514,7 +555,8 @@ bool CircularBufferTraits<T, Alloc>::empty() const noexcept {
 
 template<typename T, typename Alloc>
 CircularBufferTraits<T, Alloc>::size_type CircularBufferTraits<T, Alloc>::max_size() const noexcept {
-    return 1232123123;
+    return std::min(AllocTraits::max_size(*this),
+                    std::numeric_limits<std::ranges::__detail::__max_size_type>::max() / sizeof(size_type));
 }
 
 template<typename T, typename Alloc>
@@ -610,6 +652,7 @@ CircularBufferTraits<T, Alloc>::iterator CircularBufferTraits<T, Alloc>::erase(C
         *(it - number_of_elements) = std::move_if_noexcept(*it);
     }
 
+    actual_end_ = std::addressof(*(end() - number_of_elements));
     return begin() + index_start;
 }
 
@@ -628,7 +671,7 @@ void CircularBufferTraits<T, Alloc>::assign(CircularBufferTraits::size_type n, c
     try {
         my_uninitialized_copy(n, value, new_arr, *this);
     } catch (...) {
-        AllocTraits ::deallocate(*this, new_arr, n + 1);
+        AllocTraits::deallocate(*this, new_arr, n + 1);
         throw;
     }
     clear();
@@ -642,13 +685,14 @@ void CircularBufferTraits<T, Alloc>::assign(CircularBufferTraits::size_type n, c
 
 template<typename T, typename Alloc>
 template<typename LegacyInputIterator>
+requires std::input_iterator<LegacyInputIterator>
 void CircularBufferTraits<T, Alloc>::assign(LegacyInputIterator i, LegacyInputIterator j) {
     size_type new_size = std::distance(i, j);
-    pointer new_arr = AllocTraits ::allocate(*this, new_size + 1);
+    pointer new_arr = AllocTraits::allocate(*this, new_size + 1);
     try {
         my_uninitialized_copy(i, j, new_arr, *this);
     } catch (...) {
-        AllocTraits ::deallocate(*this, new_arr, new_size + 1);
+        AllocTraits::deallocate(*this, new_arr, new_size + 1);
         throw;
     }
 
@@ -664,4 +708,36 @@ void CircularBufferTraits<T, Alloc>::assign(LegacyInputIterator i, LegacyInputIt
 template<typename T, typename Alloc>
 void CircularBufferTraits<T, Alloc>::assign(const std::initializer_list<value_type>& il) {
     assign(il.begin(), il.end());
+}
+
+template<typename T, typename Alloc>
+CircularBufferTraits<T, Alloc>::reference CircularBufferTraits<T, Alloc>::front() {
+    if (size() == 0) {
+        throw std::out_of_range("Trying to get data from empty buffer");
+    }
+    return *actual_start_;
+}
+
+template<typename T, typename Alloc>
+CircularBufferTraits<T, Alloc>::const_reference CircularBufferTraits<T, Alloc>::front() const {
+    if (size() == 0) {
+        throw std::out_of_range("Trying to get data from empty buffer");
+    }
+    return *actual_start_;
+}
+
+template<typename T, typename Alloc>
+CircularBufferTraits<T, Alloc>::reference CircularBufferTraits<T, Alloc>::back() {
+    if (size() == 0) {
+        throw std::out_of_range("Trying to get data from empty buffer");
+    }
+    return *(actual_end_ == buff_start_ ? buff_end_ - 1 : actual_end_ - 1);
+}
+
+template<typename T, typename Alloc>
+CircularBufferTraits<T, Alloc>::const_reference CircularBufferTraits<T, Alloc>::back() const {
+    if (size() == 0) {
+        throw std::out_of_range("Trying to get data from empty buffer");
+    }
+    return *(actual_end_ == buff_start_ ? buff_end_ - 1 : actual_end_ - 1);
 }

@@ -169,7 +169,7 @@ CommonIterator<T> CommonIterator<T>::operator-(int n) const noexcept {
     if (n <= distance_to_start) {
         return CommonIterator(current_ - n, buff_start_, buff_end_, actual_start_, actual_end_);
     }
-    return CommonIterator(buff_end_ - (n - distance_to_start) % std::distance(buff_start_, buff_end_) - 1, buff_start_,
+    return CommonIterator(buff_end_ - (n - distance_to_start) % std::distance(buff_start_, buff_end_), buff_start_,
                           buff_end_, actual_start_, actual_end_);
 }
 

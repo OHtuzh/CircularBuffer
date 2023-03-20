@@ -78,9 +78,14 @@ public:
     iterator emplace(iterator p, Args&& ... args);
 
     template<typename LegacyInputIterator>
+    requires std::input_iterator<LegacyInputIterator>
     iterator insert(iterator p, LegacyInputIterator i, LegacyInputIterator j);
 
     iterator insert(iterator p, const std::initializer_list<value_type>& il);
+
+    bool operator==(const CircularBuffer& other) const noexcept;
+
+    bool operator!=(const CircularBuffer& other) const noexcept;
 
 private:
     using CircularBufferTraits<T, Alloc>::buff_start_;
@@ -193,7 +198,6 @@ void CircularBuffer<T, Alloc>::emplace_front(Args&& ... args) {
     }
     actual_start_ = new_start;
 }
-
 
 template<typename T, typename Alloc>
 CircularBuffer<T, Alloc>::iterator
@@ -335,6 +339,7 @@ CircularBuffer<T, Alloc>::emplace(CircularBuffer<T, Alloc>::iterator p, Args&& .
 
 template<typename T, typename Alloc>
 template<typename LegacyInputIterator>
+requires std::input_iterator<LegacyInputIterator>
 CircularBuffer<T, Alloc>::iterator
 CircularBuffer<T, Alloc>::insert(CircularBuffer<T, Alloc>::iterator p, LegacyInputIterator i, LegacyInputIterator j) {
     if (std::addressof(*p) < buff_start_ || std::addressof(*p) >= buff_end_) {
@@ -382,6 +387,18 @@ template<typename T, typename Alloc>
 CircularBuffer<T, Alloc>::iterator
 CircularBuffer<T, Alloc>::insert(CircularBuffer<T, Alloc>::iterator p, const std::initializer_list<value_type>& il) {
     return insert(p, il.begin(), il.end());
+}
+
+template<typename T, typename Alloc>
+bool CircularBuffer<T, Alloc>::operator==(const CircularBuffer& other) const noexcept {
+    return static_cast<const CircularBufferTraits<T, Alloc>&>(*this).operator==(
+            static_cast<const CircularBufferTraits<T, Alloc>&>(other));
+}
+
+template<typename T, typename Alloc>
+bool CircularBuffer<T, Alloc>::operator!=(const CircularBuffer& other) const noexcept {
+    return static_cast<const CircularBufferTraits<T, Alloc>&>(*this).operator!=(
+            static_cast<const CircularBufferTraits<T, Alloc>&>(other));
 }
 
 template<typename T, typename Alloc>

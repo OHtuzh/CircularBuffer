@@ -12,8 +12,8 @@ public:
     explicit CircularBufferExt(CircularBufferTraits<T, Alloc>::size_type n, const Alloc& allocator = Alloc());
 
     CircularBufferExt(CircularBufferTraits<T, Alloc>::size_type n,
-                   CircularBufferTraits<T, Alloc>::value_type value,
-                   const Alloc& allocator = Alloc());
+                      CircularBufferTraits<T, Alloc>::value_type value,
+                      const Alloc& allocator = Alloc());
 
     CircularBufferExt(const CircularBufferExt<T, Alloc>& other)
             :
@@ -78,9 +78,14 @@ public:
     iterator emplace(iterator p, Args&& ... args);
 
     template<typename LegacyInputIterator>
+    requires std::input_iterator<LegacyInputIterator>
     iterator insert(iterator p, LegacyInputIterator i, LegacyInputIterator j);
 
     iterator insert(iterator p, const std::initializer_list<value_type>& il);
+
+    bool operator==(const CircularBufferExt& other) const noexcept;
+
+    bool operator!=(const CircularBufferExt& other) const noexcept;
 
 private:
     using CircularBufferTraits<T, Alloc>::buff_start_;
@@ -103,8 +108,8 @@ CircularBufferExt<T, Alloc>::CircularBufferExt(CircularBufferTraits<T, Alloc>::s
 
 template<typename T, typename Alloc>
 CircularBufferExt<T, Alloc>::CircularBufferExt(CircularBufferTraits<T, Alloc>::size_type n,
-                                         CircularBufferTraits<T, Alloc>::value_type value,
-                                         const Alloc& allocator)
+                                               CircularBufferTraits<T, Alloc>::value_type value,
+                                               const Alloc& allocator)
         :
         CircularBufferTraits<T, Alloc>(n, value, allocator) {}
 
@@ -166,7 +171,6 @@ void CircularBufferExt<T, Alloc>::emplace_front(Args&& ... args) {
     AllocTraits::construct(*this, new_start, value_type(std::forward<Args>(args)...));
     actual_start_ = new_start;
 }
-
 
 template<typename T, typename Alloc>
 CircularBufferExt<T, Alloc>::iterator
@@ -239,7 +243,7 @@ CircularBufferExt<T, Alloc>::insert(CircularBufferExt<T, Alloc>::iterator p, val
 template<typename T, typename Alloc>
 CircularBufferExt<T, Alloc>::iterator
 CircularBufferExt<T, Alloc>::insert(CircularBufferExt<T, Alloc>::iterator p, CircularBufferExt<T, Alloc>::size_type n,
-                                 const_reference value) {
+                                    const_reference value) {
     if (std::addressof(*p) < buff_start_ || std::addressof(*p) >= buff_end_) {
         throw std::out_of_range("Iterator is out of bounds");
     }
@@ -321,8 +325,10 @@ CircularBufferExt<T, Alloc>::emplace(CircularBufferExt<T, Alloc>::iterator p, Ar
 
 template<typename T, typename Alloc>
 template<typename LegacyInputIterator>
+requires std::input_iterator<LegacyInputIterator>
 CircularBufferExt<T, Alloc>::iterator
-CircularBufferExt<T, Alloc>::insert(CircularBufferExt<T, Alloc>::iterator p, LegacyInputIterator i, LegacyInputIterator j) {
+CircularBufferExt<T, Alloc>::insert(CircularBufferExt<T, Alloc>::iterator p, LegacyInputIterator i,
+                                    LegacyInputIterator j) {
     if (std::addressof(*p) < buff_start_ || std::addressof(*p) >= buff_end_) {
         throw std::out_of_range("Iterator is out of bounds");
     }
@@ -371,8 +377,22 @@ CircularBufferExt<T, Alloc>::insert(CircularBufferExt<T, Alloc>::iterator p, Leg
 
 template<typename T, typename Alloc>
 CircularBufferExt<T, Alloc>::iterator
-CircularBufferExt<T, Alloc>::insert(CircularBufferExt<T, Alloc>::iterator p, const std::initializer_list<value_type>& il) {
+CircularBufferExt<T, Alloc>::insert(CircularBufferExt<T, Alloc>::iterator p,
+                                    const std::initializer_list<value_type>& il) {
     return insert(p, il.begin(), il.end());
+}
+
+
+template<typename T, typename Alloc>
+bool CircularBufferExt<T, Alloc>::operator==(const CircularBufferExt& other) const noexcept {
+    return static_cast<const CircularBufferTraits<T, Alloc>&>(*this).operator==(
+            static_cast<const CircularBufferTraits<T, Alloc>&>(other));
+}
+
+template<typename T, typename Alloc>
+bool CircularBufferExt<T, Alloc>::operator!=(const CircularBufferExt& other) const noexcept {
+    return static_cast<const CircularBufferTraits<T, Alloc>&>(*this).operator!=(
+            static_cast<const CircularBufferTraits<T, Alloc>&>(other));
 }
 
 template<typename T, typename Alloc>
