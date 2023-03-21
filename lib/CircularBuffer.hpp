@@ -406,3 +406,5 @@ template<typename T, typename Alloc>
 void swap(CircularBuffer<T, Alloc>& lhs, CircularBuffer<T, Alloc>& rhs) {
     lhs.swap(rhs);
 }
+
+#undef USING_FIELDS

@@ -248,5 +248,4 @@ CommonIterator<T> operator+(int n, const CommonIterator<T>& iter) {
     return iter.operator+(n);
 }
 
-
-
+#undef NOT_EMPTY_BUFFER
