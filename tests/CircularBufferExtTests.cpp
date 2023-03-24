@@ -35,7 +35,8 @@ TEST(PUSH_TEST_EXT, PUSH_WITH_AUTO_EXT) {
         cb.push_back(i);
     }
 
-    ASSERT_TRUE(cb.size() == 9 && cb.capacity() == 16);
+    ASSERT_EQ(cb.size(), 9);
+    ASSERT_TRUE(cb.capacity() == 16);
 }
 
 TEST(POP_TEST_EXT, SIMPLE_POP_TEST_EXT) {
@@ -56,20 +57,19 @@ TEST(POP_TEST_EXT, SIMPLE_POP_TEST_EXT) {
 TEST(POP_TEST_EXT, POP_FROM_EMPTY) {
     CircularBufferExt<int> cb(1);
     cb.push_back(1);
-    bool is_ub = false;
     cb.pop_back();
 
     try {
         cb.pop_back();
-        is_ub = true;
+        FAIL();
     } catch (...) {}
 
     try {
         cb.pop_front();
-        is_ub = true;
+        FAIL();
     } catch (...) {}
 
-    ASSERT_FALSE(is_ub);
+    SUCCEED();
 }
 
 TEST(ERASE_TEST_EXT, ERASE_ONE_ELEMENT) {
@@ -124,7 +124,8 @@ TEST(RESERVE_TEST_EXT, SIMPLE_TEST) {
     CircularBufferExt<int> copy = cb;
 
     cb.reserve(10);
-    ASSERT_TRUE(cb.capacity() == 10 && cb == copy);
+    ASSERT_EQ(cb.capacity(), 10);
+    ASSERT_TRUE(cb == copy);
 }
 
 TEST(RESIZE_TEST_EXT, EXPAND) {

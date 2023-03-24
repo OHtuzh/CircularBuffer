@@ -21,13 +21,9 @@ public:
 
     ~CommonIterator() noexcept = default;
 
-    operator CommonIterator<const T>() requires (std::is_const_v<T> == false) {
-        return CommonIterator<const T>(current_, buff_start_, buff_end_, actual_start_, actual_end_);
-    }
+    operator CommonIterator<const T>() requires (std::is_const_v<T> == false);
 
-    reference operator*() const noexcept {
-        return *current_;
-    }
+    reference operator*() const noexcept;
 
     reference operator->() const noexcept;
 
@@ -72,17 +68,27 @@ private:
 
 
 template<typename T>
+CommonIterator<T>::operator CommonIterator<const T>() requires (std::is_const_v<T> == false) {
+    return CommonIterator<const T>(current_, buff_start_, buff_end_, actual_start_, actual_end_);
+}
+
+template<typename T>
+CommonIterator<T>::reference CommonIterator<T>::operator*() const noexcept {
+    return *current_;
+}
+
+
+template<typename T>
 CommonIterator<T>::CommonIterator(CommonIterator::pointer current,
                                   CommonIterator::pointer buff_start,
                                   CommonIterator::pointer buff_end,
                                   CommonIterator::pointer actual_start,
                                   CommonIterator::pointer actual_end)
-        :
-        current_(current),
-        buff_start_(buff_start),
-        buff_end_(buff_end),
-        actual_start_(actual_start),
-        actual_end_(actual_end) {}
+        : current_(current),
+          buff_start_(buff_start),
+          buff_end_(buff_end),
+          actual_start_(actual_start),
+          actual_end_(actual_end) {}
 
 
 template<typename T>

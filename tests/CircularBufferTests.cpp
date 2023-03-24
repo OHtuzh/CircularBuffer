@@ -47,20 +47,19 @@ TEST(POP_TEST, SIMPLE_POP_TEST) {
 TEST(POP_TEST, POP_FROM_EMPTY) {
     CircularBuffer<int> cb(1);
     cb.push_back(1);
-    bool is_ub = false;
     cb.pop_back();
 
     try {
         cb.pop_back();
-        is_ub = true;
+        FAIL();
     } catch (...) {}
 
     try {
         cb.pop_front();
-        is_ub = true;
+        FAIL();
     } catch (...) {}
 
-    ASSERT_FALSE(is_ub);
+    SUCCEED();
 }
 
 TEST(ERASE_TEST, ERASE_ONE_ELEMENT) {
@@ -115,7 +114,8 @@ TEST(RESERVE_TEST, SIMPLE_TEST) {
     CircularBuffer<int> copy = cb;
 
     cb.reserve(10);
-    ASSERT_TRUE(cb.capacity() == 10 && cb == copy);
+    ASSERT_EQ(cb.capacity(), 10);
+    ASSERT_TRUE(cb == copy);
 }
 
 TEST(RESIZE_TEST, EXPAND) {

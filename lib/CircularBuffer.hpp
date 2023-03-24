@@ -1,57 +1,53 @@
 #pragma once
 
-#include "CircularBufferTraits.hpp"
+#include "CircularBufferBase.hpp"
 
 template<typename T, typename Alloc = std::allocator<T>>
-class CircularBuffer : protected CircularBufferTraits<T, Alloc> {
+class CircularBuffer : protected CircularBufferBase<T, Alloc> {
 public:
     USING_FIELDS;
 
-    explicit CircularBuffer(const Alloc& allocator = Alloc());
+    explicit CircularBuffer(const Alloc& allocator = Alloc()) : CircularBufferBase<T, Alloc>(allocator) {}
 
-    explicit CircularBuffer(CircularBufferTraits<T, Alloc>::size_type n, const Alloc& allocator = Alloc());
+    explicit CircularBuffer(CircularBufferBase<T, Alloc>::size_type n, const Alloc& allocator = Alloc())
+            : CircularBufferBase<T, Alloc>(n, allocator) {}
 
-    CircularBuffer(CircularBufferTraits<T, Alloc>::size_type n,
-                   CircularBufferTraits<T, Alloc>::value_type value,
-                   const Alloc& allocator = Alloc());
+    CircularBuffer(CircularBufferBase<T, Alloc>::size_type n,
+                   CircularBufferBase<T, Alloc>::value_type value,
+                   const Alloc& allocator = Alloc()) : CircularBufferBase<T, Alloc>(n, value, allocator) {}
 
     CircularBuffer(const CircularBuffer<T, Alloc>& other)
             :
-            CircularBufferTraits<T, Alloc>(other) {}
+            CircularBufferBase<T, Alloc>(other) {}
 
-    CircularBuffer(CircularBuffer<T, Alloc>&& other) noexcept
-            :
-            CircularBufferTraits<T, Alloc>(std::move(other)) {}
+    CircularBuffer(CircularBuffer<T, Alloc>&& other) noexcept: CircularBufferBase<T, Alloc>(std::move(other)) {}
 
     template<typename LegacyInputIterator>
     CircularBuffer(LegacyInputIterator i, LegacyInputIterator j, const Alloc& allocator = Alloc())
-            :
-            CircularBufferTraits<T, Alloc>(i, j, allocator) {}
+            : CircularBufferBase<T, Alloc>(i, j, allocator) {}
 
     CircularBuffer(const std::initializer_list<value_type>& list, const Alloc& allocator = Alloc())
-            :
-            CircularBufferTraits<T, Alloc>(list, allocator) {}
+            : CircularBufferBase<T, Alloc>(list, allocator) {}
 
     ~CircularBuffer() {
         clear();
-
-        AllocTraits::deallocate(*this, buff_start_, capacity() + 1);
+        AllocTraits::deallocate(allocator_, buff_start_, capacity() + 1);
     }
 
     CircularBuffer& operator=(const CircularBuffer& other) {
-        static_cast<CircularBufferTraits<T, Alloc>&>(*this).operator=(
-                static_cast<CircularBufferTraits<T, Alloc>&>(other));
+        static_cast<CircularBufferBase<T, Alloc>&>(*this).operator=(
+                static_cast<CircularBufferBase<T, Alloc>&>(other));
         return *this;
     }
 
     CircularBuffer& operator=(CircularBuffer&& other) noexcept {
-        static_cast<CircularBufferTraits<T, Alloc>&>(*this).operator=(
-                std::move(static_cast<CircularBufferTraits<T, Alloc>&>(other)));
+        static_cast<CircularBufferBase<T, Alloc>&>(*this).operator=(
+                std::move(static_cast<CircularBufferBase<T, Alloc>&>(other)));
         return *this;
     }
 
     void swap(CircularBuffer& other) {
-        static_cast<CircularBufferTraits<T, Alloc>&>(*this).swap(static_cast<CircularBufferTraits<T, Alloc>&>(other));
+        static_cast<CircularBufferBase<T, Alloc>&>(*this).swap(static_cast<CircularBufferBase<T, Alloc>&>(other));
     }
 
     void push_back(const T& value);
@@ -87,41 +83,23 @@ public:
 
     bool operator!=(const CircularBuffer& other) const noexcept;
 
-private:
-    using CircularBufferTraits<T, Alloc>::buff_start_;
-    using CircularBufferTraits<T, Alloc>::buff_end_;
-    using CircularBufferTraits<T, Alloc>::actual_start_;
-    using CircularBufferTraits<T, Alloc>::actual_end_;
+protected:
+    using CircularBufferBase<T, Alloc>::buff_start_;
+    using CircularBufferBase<T, Alloc>::buff_end_;
+    using CircularBufferBase<T, Alloc>::actual_start_;
+    using CircularBufferBase<T, Alloc>::actual_end_;
+    using CircularBufferBase<T, Alloc>::allocator_;
 };
-
-template<typename T, typename Alloc>
-CircularBuffer<T, Alloc>::CircularBuffer(const Alloc& allocator)
-        :
-        CircularBufferTraits<T, Alloc>(allocator) {}
-
-
-template<typename T, typename Alloc>
-CircularBuffer<T, Alloc>::CircularBuffer(CircularBufferTraits<T, Alloc>::size_type n, const Alloc& allocator)
-        :
-        CircularBufferTraits<T, Alloc>(n, allocator) {}
-
-
-template<typename T, typename Alloc>
-CircularBuffer<T, Alloc>::CircularBuffer(CircularBufferTraits<T, Alloc>::size_type n,
-                                         CircularBufferTraits<T, Alloc>::value_type value,
-                                         const Alloc& allocator)
-        :
-        CircularBufferTraits<T, Alloc>(n, value, allocator) {}
 
 template<typename T, typename Alloc>
 void CircularBuffer<T, Alloc>::push_back(const T& value) {
     if (capacity() == 0) {
         return;
     }
-    AllocTraits::construct(*this, actual_end_, value);
+    AllocTraits::construct(allocator_, actual_end_, value);
     auto next = (actual_end_ + 1 == buff_end_ ? buff_start_ : actual_end_ + 1);
     if (next == actual_start_) {
-        AllocTraits::destroy(*this, actual_start_);
+        AllocTraits::destroy(allocator_, actual_start_);
         actual_start_ = (actual_start_ + 1 == buff_end_ ? buff_start_ : actual_start_ + 1);
     }
     actual_end_ = (actual_end_ + 1 == buff_end_ ? buff_start_ : actual_end_ + 1);
@@ -132,10 +110,10 @@ void CircularBuffer<T, Alloc>::push_back(T&& value) {
     if (capacity() == 0) {
         return;
     }
-    AllocTraits::construct(*this, actual_end_, std::move(value));
+    AllocTraits::construct(allocator_, actual_end_, std::move(value));
     auto next = (actual_end_ + 1 == buff_end_ ? buff_start_ : actual_end_ + 1);
     if (next == actual_start_) {
-        AllocTraits::destroy(*this, actual_start_);
+        AllocTraits::destroy(allocator_, actual_start_);
         actual_start_ = (actual_start_ + 1 == buff_end_ ? buff_start_ : actual_start_ + 1);
     }
     actual_end_ = next;
@@ -147,10 +125,10 @@ void CircularBuffer<T, Alloc>::emplace_back(Args&& ... args) {
     if (capacity() == 0) {
         return;
     }
-    AllocTraits::construct(*this, actual_end_, value_type(std::forward<Args>(args)...));
+    AllocTraits::construct(allocator_, actual_end_, value_type(std::forward<Args>(args)...));
     auto next = (actual_end_ + 1 == buff_end_ ? buff_start_ : actual_end_ + 1);
     if (next == actual_start_) {
-        AllocTraits::destroy(*this, actual_start_);
+        AllocTraits::destroy(allocator_, actual_start_);
         actual_start_ = (actual_start_ + 1 == buff_end_ ? buff_start_ : actual_start_ + 1);
     }
     actual_end_ = (actual_end_ + 1 == buff_end_ ? buff_start_ : actual_end_ + 1);
@@ -162,10 +140,10 @@ void CircularBuffer<T, Alloc>::push_front(const T& value) {
         return;
     }
     auto new_start = (actual_start_ == buff_start_ ? buff_end_ - 1 : actual_start_ - 1);
-    AllocTraits::construct(*this, new_start, value);
+    AllocTraits::construct(allocator_, new_start, value);
     if (new_start == actual_end_) {
         actual_end_ = (actual_end_ == buff_start_ ? buff_end_ - 1 : actual_end_ - 1);
-        AllocTraits::destroy(*this, actual_end_);
+        AllocTraits::destroy(allocator_, actual_end_);
     }
     actual_start_ = new_start;
 }
@@ -176,10 +154,10 @@ void CircularBuffer<T, Alloc>::push_front(T&& value) {
         return;
     }
     auto new_start = (actual_start_ == buff_start_ ? buff_end_ - 1 : actual_start_ - 1);
-    AllocTraits::construct(*this, new_start, std::move(value));
+    AllocTraits::construct(allocator_, new_start, std::move(value));
     if (new_start == actual_end_) {
         actual_end_ = (actual_end_ == buff_start_ ? buff_end_ - 1 : actual_end_ - 1);
-        AllocTraits::destroy(*this, actual_end_);
+        AllocTraits::destroy(allocator_, actual_end_);
     }
     actual_start_ = new_start;
 }
@@ -191,10 +169,10 @@ void CircularBuffer<T, Alloc>::emplace_front(Args&& ... args) {
         return;
     }
     auto new_start = (actual_start_ == buff_start_ ? buff_end_ - 1 : actual_start_ - 1);
-    AllocTraits::construct(*this, new_start, value_type(std::forward<Args>(args)...));
+    AllocTraits::construct(allocator_, new_start, value_type(std::forward<Args>(args)...));
     if (new_start == actual_end_) {
         actual_end_ = (actual_end_ == buff_start_ ? buff_end_ - 1 : actual_end_ - 1);
-        AllocTraits::destroy(*this, actual_end_);
+        AllocTraits::destroy(allocator_, actual_end_);
     }
     actual_start_ = new_start;
 }
@@ -222,7 +200,7 @@ CircularBuffer<T, Alloc>::insert(CircularBuffer<T, Alloc>::const_iterator p, con
 
     auto last = --end();
     p = begin() + index;
-    AllocTraits::construct(*this, actual_end_, std::move_if_noexcept(*last));
+    AllocTraits::construct(allocator_, actual_end_, std::move_if_noexcept(*last));
     actual_end_ = (actual_end_ + 1 == buff_end_ ? buff_start_ : actual_end_ + 1);
     for (; last != p; --last) {
         *last = std::move_if_noexcept(*(last - 1));
@@ -252,7 +230,7 @@ CircularBuffer<T, Alloc>::insert(CircularBuffer<T, Alloc>::const_iterator p, val
     }
     auto last = --end();
     auto it = begin() + index;
-    AllocTraits::construct(*this, actual_end_, std::move_if_noexcept(*last));
+    AllocTraits::construct(allocator_, actual_end_, std::move_if_noexcept(*last));
     actual_end_ = (actual_end_ + 1 == buff_end_ ? buff_start_ : actual_end_ + 1);
     for (; last != it; --last) {
         *last = std::move_if_noexcept(*(last - 1));
@@ -292,15 +270,15 @@ CircularBuffer<T, Alloc>::insert(CircularBuffer<T, Alloc>::const_iterator p, Cir
         return begin();
     }
 
-    actual_end_ = (actual_end_ + n >= buff_end_ ? actual_end_ = buff_start_ + ((actual_end_ + n) - buff_end_) :
+    actual_end_ = (actual_end_ + n >= buff_end_ ? buff_start_ + ((actual_end_ + n) - buff_end_) :
                    actual_end_ + n);
 
     auto to_insert = begin() + index;
     for (auto it = end() - n; it != to_insert; --it) {
-        AllocTraits::construct(*this, std::addressof(*(it + n - 1)), std::move_if_noexcept(*(it - 1)));
+        AllocTraits::construct(allocator_, std::addressof(*(it + n - 1)), std::move_if_noexcept(*(it - 1)));
     }
     for (size_type i = 0; i < n; ++i) {
-        AllocTraits::construct(*this, std::addressof(to_insert[i]), value);
+        AllocTraits::construct(allocator_, std::addressof(to_insert[i]), value);
     }
 
     return to_insert;
@@ -328,7 +306,7 @@ CircularBuffer<T, Alloc>::emplace(CircularBuffer<T, Alloc>::const_iterator p, Ar
     }
     auto last = --end();
     auto it = begin() + index;
-    AllocTraits::construct(*this, actual_end_, std::move_if_noexcept(*last));
+    AllocTraits::construct(allocator_, actual_end_, std::move_if_noexcept(*last));
     actual_end_ = (actual_end_ + 1 == buff_end_ ? buff_start_ : actual_end_ + 1);
     for (; last != it; --last) {
         *last = std::move_if_noexcept(*(last - 1));
@@ -341,7 +319,8 @@ template<typename T, typename Alloc>
 template<typename LegacyInputIterator>
 requires std::input_iterator<LegacyInputIterator>
 CircularBuffer<T, Alloc>::iterator
-CircularBuffer<T, Alloc>::insert(CircularBuffer<T, Alloc>::const_iterator p, LegacyInputIterator i, LegacyInputIterator j) {
+CircularBuffer<T, Alloc>::insert(CircularBuffer<T, Alloc>::const_iterator p, LegacyInputIterator i,
+                                 LegacyInputIterator j) {
     if (std::addressof(*p) < buff_start_ || std::addressof(*p) >= buff_end_) {
         throw std::out_of_range("Iterator is out of bounds");
     }
@@ -375,10 +354,10 @@ CircularBuffer<T, Alloc>::insert(CircularBuffer<T, Alloc>::const_iterator p, Leg
 
     auto to_insert = begin() + index;
     for (auto it = end() - n; it != to_insert; --it) {
-        AllocTraits::construct(*this, std::addressof(*(it + n - 1)), std::move_if_noexcept(*(it - 1)));
+        AllocTraits::construct(allocator_, std::addressof(*(it + n - 1)), std::move_if_noexcept(*(it - 1)));
     }
     for (size_type k = 0; k < n; ++i, ++k) {
-        AllocTraits::construct(*this, std::addressof(to_insert[k]), *i);
+        AllocTraits::construct(allocator_, std::addressof(to_insert[k]), *i);
     }
 
     return to_insert;
@@ -386,20 +365,21 @@ CircularBuffer<T, Alloc>::insert(CircularBuffer<T, Alloc>::const_iterator p, Leg
 
 template<typename T, typename Alloc>
 CircularBuffer<T, Alloc>::iterator
-CircularBuffer<T, Alloc>::insert(CircularBuffer<T, Alloc>::const_iterator p, const std::initializer_list<value_type>& il) {
+CircularBuffer<T, Alloc>::insert(CircularBuffer<T, Alloc>::const_iterator p,
+                                 const std::initializer_list<value_type>& il) {
     return insert(p, il.begin(), il.end());
 }
 
 template<typename T, typename Alloc>
 bool CircularBuffer<T, Alloc>::operator==(const CircularBuffer& other) const noexcept {
-    return static_cast<const CircularBufferTraits<T, Alloc>&>(*this).operator==(
-            static_cast<const CircularBufferTraits<T, Alloc>&>(other));
+    return static_cast<const CircularBufferBase<T, Alloc>&>(*this).operator==(
+            static_cast<const CircularBufferBase<T, Alloc>&>(other));
 }
 
 template<typename T, typename Alloc>
 bool CircularBuffer<T, Alloc>::operator!=(const CircularBuffer& other) const noexcept {
-    return static_cast<const CircularBufferTraits<T, Alloc>&>(*this).operator!=(
-            static_cast<const CircularBufferTraits<T, Alloc>&>(other));
+    return static_cast<const CircularBufferBase<T, Alloc>&>(*this).operator!=(
+            static_cast<const CircularBufferBase<T, Alloc>&>(other));
 }
 
 template<typename T, typename Alloc>

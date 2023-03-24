@@ -3,7 +3,7 @@ add_library(
         INTERFACE
         uninitialized_copy_modified.hpp
         Iterator.hpp
-        CircularBufferTraits.hpp
+        CircularBufferBase.hpp
         CircularBuffer.hpp
         CircularBufferExt.hpp
 )
