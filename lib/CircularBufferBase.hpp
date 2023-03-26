@@ -191,7 +191,7 @@ CircularBufferBase<T, Alloc>::CircularBufferBase(size_type size, const_reference
           buff_start_(AllocTraits::allocate(allocator_, size + 1)),
           buff_end_(buff_start_ + size + 1),
           actual_start_(buff_start_),
-          actual_end_(buff_end_) {
+          actual_end_(buff_end_ - 1) {
     size_type current = 0;
     try {
         for (; current < size; ++current) {
@@ -216,7 +216,7 @@ CircularBufferBase<T, Alloc>::CircularBufferBase(LegacyInputIterator i, LegacyIn
           buff_start_(AllocTraits::allocate(allocator_, std::distance(i, j) + 1)),
           buff_end_(buff_start_ + std::distance(i, j) + 1),
           actual_start_(buff_start_),
-          actual_end_(buff_end_ + 1) {
+          actual_end_(buff_end_ - 1) {
     try {
         my_uninitialized_copy(i, j, actual_start_, allocator_);
     } catch (...) {
