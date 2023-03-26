@@ -1,0 +1,9 @@
+add_library(
+        circular_buffer
+        INTERFACE
+        uninitialized_copy_modified.hpp
+        Iterator.hpp
+        CircularBufferBase.hpp
+        CircularBuffer.hpp
+        CircularBufferExt.hpp
+)
